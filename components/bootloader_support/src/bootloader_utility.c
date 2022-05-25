@@ -750,6 +750,7 @@ static void bootloader_utility_start_image(uint32_t image_start, uint32_t image_
 
     bootloader_mmap(image_start, image_size);
 
+    ESP_LOGE(TAG, "...%s:%d... %p %p", __func__, __LINE__, (void *)image_start, (void *)entry_addr);
     user_start = (void *)entry_addr;
     user_start(image_start);
 }
@@ -820,6 +821,8 @@ void bootloader_utility_load_image(const esp_image_metadata_t* image_data)
     }
 #endif
 
+    ESP_LOGE(TAG, "...%s:%d...", __func__, __LINE__);
+
 #ifdef CONFIG_FLASH_ENCRYPTION_ENABLED
     /* encrypt flash */
     ESP_LOGI(TAG, "Checking flash encryption...");
@@ -840,6 +843,8 @@ void bootloader_utility_load_image(const esp_image_metadata_t* image_data)
     }
 #endif
 
+    ESP_LOGE(TAG, "...%s:%d...", __func__, __LINE__);
+
 #ifdef BOOTLOADER_UNPACK_APP
     ESP_LOGI(TAG, "Disabling RNG early entropy source...");
     bootloader_random_disable();
@@ -847,6 +852,7 @@ void bootloader_utility_load_image(const esp_image_metadata_t* image_data)
     copy loaded segments to RAM, set up caches for mapped segments, and start application
     unpack_load_app(image_data);
 #else
+    ESP_LOGE(TAG, "...%s:%d...", __func__, __LINE__);
     bootloader_utility_start_image(image_data->start_addr, image_data->image_len, image_data->image.entry_addr);
 #endif /* BOOTLOADER_UNPACK_APP */
 }

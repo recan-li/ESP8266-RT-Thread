@@ -50,6 +50,7 @@ PARTITION_TABLE_BIN_UNSIGNED := $(PARTITION_TABLE_BIN)
 endif
 
 $(PARTITION_TABLE_BIN_UNSIGNED): $(PARTITION_TABLE_CSV_PATH) $(SDKCONFIG_MAKEFILE)
+	@$(info here create for $@)
 	@echo "Building partitions from $(PARTITION_TABLE_CSV_PATH)..."
 	$(GEN_ESP32PART) $< $@
 
@@ -65,6 +66,9 @@ partition_table_get_info: $(PARTITION_TABLE_BIN)
 	$(eval APP_SIZE:=$(shell $(GET_PART_INFO) --partition-table-file $(PARTITION_TABLE_BIN) \
 							--partition-table-offset $(PARTITION_TABLE_OFFSET) \
 							get_partition_info --partition-boot-default --info size))
+	$(warning PHY_DATA_OFFSET==============$(PHY_DATA_OFFSET))
+	$(warning APP_OFFSET==============$(APP_OFFSET))
+	$(warning APP_SIZE==============$(APP_SIZE))
 	$(eval OTA_DATA_OFFSET:=$(shell $(GET_PART_INFO) --partition-table-file $(PARTITION_TABLE_BIN) \
 							--partition-table-offset $(PARTITION_TABLE_OFFSET) \
 							get_partition_info --partition-type data --partition-subtype ota --info offset))

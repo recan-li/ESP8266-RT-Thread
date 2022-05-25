@@ -144,12 +144,27 @@ int __wifi_timer_stop(void *timer, uint32_t ticks)
     return xTimerStop(timer, ticks);
 }
 
+#ifdef CONFIG_ENABLE_ESP_OSAL_RTTHREAD
+
+#include "rtthread.h"
+
+void *__wifi_task_top_sp(void)
+{
+    rt_thread_t thread = rt_thread_self();
+
+    return thread->sp;
+}
+
+#else
+
 void *__wifi_task_top_sp(void)
 {
     extern uint32_t **pxCurrentTCB;
 
     return pxCurrentTCB[0];
 }
+
+#endif
 
 void* __wifi_semphr_create(uint32_t max, uint32_t init)
 {

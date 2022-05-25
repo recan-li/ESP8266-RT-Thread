@@ -195,6 +195,17 @@ void os_timer_disarm(os_timer_t *ptimer);
 void ets_timer_done(os_timer_t *ptimer);
 
 /**
+  * @brief  Set the real CPU ticks per us to the ets, so that ets_delay_us will be accurate.
+  *         Call this function when CPU frequency is changed.
+  *
+  * @param  uint32_t ticks_per_us : CPU ticks per us.
+  *
+  * @return None
+  */
+void ets_update_cpu_frequency(uint32_t ticks_per_us);
+
+
+/**
   * @}
   */
 

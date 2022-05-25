@@ -49,6 +49,8 @@ int32_t os_get_random(unsigned char *buf, size_t len);
   */
 int ets_putc(int c);
 
+void ets_puts(const char *s);
+
 /**
   * @brief  Printf the strings to uart or other devices, similar with vprintf, simple than vprintf.
   *         Can not print float point data format, or longlong data format.

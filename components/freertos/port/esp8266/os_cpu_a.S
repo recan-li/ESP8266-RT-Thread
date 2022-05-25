@@ -13,11 +13,16 @@
 
     #include "freertos/xtensa_rtos.h"
 
+    /* 28 bytes */
+    #define RTT_TOPOFSTACK_OFFS 0x1C
+
     .extern _xt_tick_divisor
     .extern _xt_context_save
     .extern _xt_context_restore
     .extern pxCurrentTCB
     .extern CCOMPARE_AddVal
+    .extern debug_int_enter;
+    .extern debug_int_exit;
 
     .section    .text
 
@@ -47,6 +52,8 @@
     .literal_position
 _xt_int_enter:
 
+    //call0   debug_int_enter
+
     /* Save a12-13 in the stack frame as required by _xt_context_save. */
     s32i    a12, sp, XT_STK_A12
     s32i    a13, sp, XT_STK_A13
@@ -54,12 +61,16 @@ _xt_int_enter:
     /* Save return address in a safe place (free a0). */
     mov     a12, a0
 
+    //call0   debug_int_enter
+
     /* Save the rest of the interrupted context (preserves A12-13). */
     call0   _xt_context_save
 
     movi	a0,  pxCurrentTCB
 	l32i    a0,  a0,  0
-	s32i	sp,	 a0,  0
+	s32i	sp,	 a0,  RTT_TOPOFSTACK_OFFS
+
+    //call0   debug_int_enter
 
     /* Retrieve the return address and return to interrupt handler. */
     mov     a0,  a12
@@ -82,6 +93,8 @@ _xt_int_enter:
     .type   _xt_int_exit,@function
     .align  4
 _xt_int_exit:
+
+    //call0   debug_int_exit
     /*
     Call0 ABI callee-saved regs a12-15 need to be saved before possible preemption.
     However a12-13 were already saved by _xt_int_enter().
@@ -89,13 +102,15 @@ _xt_int_exit:
     */
     s32i    a14, sp,  XT_STK_A14
     s32i    a15, sp,  XT_STK_A15
+    //call0   debug_int_exit
 
     /*
 	Save A14, A15 in sp to a14, a15 in cpu
     */
     movi	sp,  pxCurrentTCB
 	l32i    sp,  sp,  0
-	l32i	sp,	 sp,  0
+	l32i	sp,	 sp,  RTT_TOPOFSTACK_OFFS
+    //call0   debug_int_exit
 
 #ifdef CONFIG_FREERTOS_WATCHPOINT_END_OF_STACK
     movi    a2,  pxCurrentTCB
@@ -114,18 +129,22 @@ _xt_int_exit:
     is a nested interrupt or the interrupted task was not preempted.
     We are still on the same stack so there's no need to load the SP.
     */
+    //call0   debug_int_exit
     movi	a14, pxCurrentTCB
 	l32i    a14, a14, 0
     addi    a15, sp,  XT_STK_FRMSZ
-    s32i	a15, a14, 0
+    s32i	a15, a14, RTT_TOPOFSTACK_OFFS
 
+    //call0   debug_int_exit
     /* Restore full context from interrupt stack frame and return to exit dispatcher. */
     call0   _xt_context_restore
 
+    //call0   debug_int_exit
     /* In Call0 ABI, restore callee-saved regs (A12, A13 already restored). */
     l32i    a14, sp,  XT_STK_A14   
     l32i    a15, sp,  XT_STK_A15
 
+    //call0   debug_int_exit
     l32i    a0,  sp,  XT_STK_EXIT
     ret
 
@@ -239,7 +258,7 @@ _xt_isr_mask:
 _xt_enter_first_task:
     movi    sp,  pxCurrentTCB
     l32i    sp,  sp,  0
-    l32i    sp,	 sp,  0
+    l32i    sp,	 sp,  RTT_TOPOFSTACK_OFFS
 
 #ifdef CONFIG_FREERTOS_WATCHPOINT_END_OF_STACK
     movi    a2,  pxCurrentTCB
@@ -256,7 +275,7 @@ _xt_enter_first_task:
     movi    a14, pxCurrentTCB
     l32i    a14, a14, 0
     addi    a15, sp,  XT_STK_FRMSZ
-    s32i    a15, a14, 0
+    s32i    a15, a14, RTT_TOPOFSTACK_OFFS
 
     movi    a0, _xt_context_restore
     callx0  a0

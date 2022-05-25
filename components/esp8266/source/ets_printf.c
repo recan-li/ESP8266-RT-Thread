@@ -107,6 +107,13 @@ static inline void ets_printf_buf(const char *s, uint32_t len)
         ets_putc(*s++);
 }
 
+void ets_puts(const char *s)
+{
+    while (*s != '\0') {
+        ets_putc(*s++);
+    }
+}
+
 static int ets_printf_str(const val_attr_t * const attr)
 {
     const char *s = attr->value.valcp;
@@ -309,4 +316,17 @@ int ETS_PRINTF_ATTR ets_printf(const char *fmt, ...)
     va_end(ap);
 
     return ret;
+}
+
+char *esp_strrchr(const char *s, char c)
+{
+    const char *sc = s + strlen(s) - 1;
+    //ets_printf("%s %p %p %d\n", s, s, sc, rt_strlen(s));
+    for (; sc != s; --sc) {
+        if (*sc == c) {
+            break;
+        }
+    }
+    //ets_printf("%s %p\n", sc, sc);
+    return (char *)sc;
 }

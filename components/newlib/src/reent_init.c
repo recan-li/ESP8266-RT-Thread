@@ -19,6 +19,7 @@
 #include <sys/reent.h>
 #include "esp_attr.h"
 #include "esp_vfs_dev.h"
+#include "esp_log.h"
 
 #define _STR(_s)    #_s
 #define STR(_s)     _STR(_s)
@@ -122,26 +123,27 @@ int esp_newlib_init(void)
 
     _global_impure_ptr = &impure_data;
     esp_reent_init(_global_impure_ptr);
-
+RT_DEBUG_MORE("");
     esp_vfs_dev_uart_register();
-
+RT_DEBUG_MORE("");
+    return 0;
     _GLOBAL_REENT->_stdout = fopen(default_uart_dev, "w");
     if (!_GLOBAL_REENT->_stdout)
         goto err;
-
+RT_DEBUG_MORE("");
     _GLOBAL_REENT->_stderr = fopen(default_uart_dev, "w");
     if (!_GLOBAL_REENT->_stderr)
         goto err_fail;
-
+RT_DEBUG_MORE("");
     _GLOBAL_REENT->_stdin = fopen(default_uart_dev, "r");
     if (!_GLOBAL_REENT->_stdin)
         goto err_in;
-
+RT_DEBUG_MORE("");
     environ = malloc(sizeof(char*));
     if (!environ)
         goto err_env;
     environ[0] = NULL;
-
+RT_DEBUG_MORE("");
     return 0;
 
 err_env:
@@ -151,6 +153,7 @@ err_in:
 err_fail:
     fclose(_GLOBAL_REENT->_stdout);
 err:
+RT_DEBUG_MORE("");
     return -1;
 }
 

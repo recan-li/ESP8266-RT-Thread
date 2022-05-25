@@ -62,6 +62,7 @@ ifndef IS_BOOTLOADER_BUILD
 APP_BIN_UNSIGNED := $(APP_BIN:.bin=-unsigned.bin)
 
 $(APP_BIN): $(APP_BIN_UNSIGNED) $(SECURE_BOOT_SIGNING_KEY) $(SDKCONFIG_MAKEFILE)
+	@$(info here create for app-bin $@)
 	$(ESPSECUREPY) sign_data --keyfile $(SECURE_BOOT_SIGNING_KEY) -o $@ $<
 endif
 endif
@@ -69,6 +70,7 @@ endif
 APP_BIN_UNSIGNED ?= $(APP_BIN)
 
 $(APP_BIN_UNSIGNED): $(APP_ELF) $(ESPTOOLPY_SRC)
+	@$(info here create for app-bin-unsigned $@)
 	$(ESPTOOLPY) elf2image $(ESPTOOL_FLASH_OPTIONS) $(ESPTOOL_ELF2IMAGE_OPTIONS) -o $@ $<
 
 flash: all_binaries $(ESPTOOLPY_SRC) $(call prereq_if_explicit,erase_flash)

@@ -1,0 +1,4 @@
+[mapping:freertos_wrapper_rtthread]
+archive: libfreertos_wrapper_rtthread.a
+entries:
+    * (noflash_text)

@@ -44,6 +44,7 @@
 #include "esp_libc.h"
 #include "esp_task_wdt.h"
 #include "esp_sleep.h"
+#include "esp_log.h"
 
 #include "esp8266/eagle_soc.h"
 #include "rom/ets_sys.h"
@@ -78,6 +79,10 @@ void IRAM_ATTR portYIELD_FROM_ISR(void)
     s_switch_ctx_flag = 1;
 }
 
+#ifndef CONFIG_ENABLE_ESP_OSAL_RTTHREAD
+
+char *g_task_name = NULL;
+
 uint8_t *__cpu_init_stk(uint8_t *stack_top, void (*_entry)(void *), void *param, void (*_exit)(void))
 {
 
@@ -101,10 +106,13 @@ uint8_t *__cpu_init_stk(uint8_t *stack_top, void (*_entry)(void *), void *param,
     /* Set initial PS to int level 0, EXCM disabled ('rfe' will enable), user mode. */
     SET_STKREG(XT_STK_PS,      PS_UM | PS_EXCM);
 
+    ets_printf("stack_top: %p\r\n", stack_top);
+    extern void dump_memory(char *name, uint8_t *data, uint32_t len);
+    dump_memory(g_task_name, sp, 80);
+
     return (uint8_t *)sp;
 }
 
-#ifndef DISABLE_FREERTOS
 /*
  * See header file for description.
  */
@@ -118,6 +126,7 @@ void IRAM_ATTR PendSV(int req)
 {
     if (req == 1) {
         vPortEnterCritical();
+        ets_printf("m\r\n");
         s_switch_ctx_flag = 1;
         xthal_set_intset(1 << ETS_SOFT_INUM);
         vPortExitCritical();
@@ -131,6 +140,7 @@ void IRAM_ATTR SoftIsrHdl(void* arg)
     extern int MacIsrSigPostDefHdl(void);
 
     if (MacIsrSigPostDefHdl()) {
+        ets_printf("k\r\n");
         portYIELD_FROM_ISR();
     }
 }
@@ -145,6 +155,10 @@ void IRAM_ATTR xPortSysTickHandle(void *p)
     uint32_t us;
     uint32_t ticks;
     uint32_t ccount;
+
+    extern int ets_puc(int c);
+    //ets_putc('+');
+    RT_DEBUG_MORE("+\r\n");
 
     /**
      * System or application may close interrupt too long, such as the operation of read/write/erase flash.
@@ -170,6 +184,7 @@ void IRAM_ATTR xPortSysTickHandle(void *p)
     g_esp_os_ticks++;
 
     if (xTaskIncrementTick() != pdFALSE) {
+        ets_printf("t\r\n");
         portYIELD_FROM_ISR();
     }
 }
@@ -197,6 +212,7 @@ portBASE_TYPE xPortStartScheduler(void)
      */
     cpu_sr = 0x20;
 
+#if 0
     /*******software isr*********/
     _xt_isr_attach(ETS_SOFT_INUM, SoftIsrHdl, NULL);
     _xt_isr_unmask(1 << ETS_SOFT_INUM);
@@ -209,8 +225,22 @@ portBASE_TYPE xPortStartScheduler(void)
     g_esp_boot_ccount = soc_get_ccount();
     soc_set_ccount(0);
     _xt_tick_timer_init();
+#else
+    extern void sys_tick_int_init(void);
+    sys_tick_int_init();
+#endif
 
     vTaskSwitchContext();
+
+    while (0) {
+        RT_DEBUG_MORE("6+1\r\n");
+        for(int i = 0; i < 10000000; i++);
+        //RT_DEBUG_MORE("6+1\r\n");
+        //for(int i = 0; i < 10000000; i++);
+        //RT_DEBUG_MORE("6+1\r\n");
+        //for(int i = 0; i < 10000000; i++);
+            break;
+    }
 
     /* Restore the context of the first task that is going to run. */
     _xt_enter_first_task();
@@ -358,6 +388,7 @@ void IRAM_ATTR _xt_isr_handler(void)
     do {
         uint32_t mask = soc_get_int_mask();
 
+        ets_printf("isr mask: %x\r\n", mask);
         for (int i = 0; i < ETS_INT_MAX && mask; i++) {
             int bit = 1 << i;
 
@@ -375,9 +406,21 @@ void IRAM_ATTR _xt_isr_handler(void)
     } while (soc_get_int_mask());
 
     if (s_switch_ctx_flag) {
+        ets_printf("s_switch_ctx_flag 11111000... switch begin\r\n");
         vTaskSwitchContext();
+        ets_printf("s_switch_ctx_flag 11111222... switch end\r\n");
         s_switch_ctx_flag = 0;
     }
+}
+
+__attribute__((section("text"))) void debug_int_enter(void)
+{
+    ets_printf("1--->\n");
+}
+
+__attribute__((section("text"))) void debug_int_exit(void)
+{
+    ets_printf("1--->\n");
 }
 
 int xPortInIsrContext(void)
@@ -420,7 +463,7 @@ void esp_internal_idle_hook(void)
     esp_sleep_start();
 }
 
-#ifndef DISABLE_FREERTOS
+#ifndef CONFIG_ENABLE_ESP_OSAL_RTTHREAD
 #if configUSE_IDLE_HOOK == 1
 void __attribute__((weak)) vApplicationIdleHook(void)
 {

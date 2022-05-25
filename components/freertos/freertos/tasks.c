@@ -261,6 +261,8 @@ to its original value when it is released. */
 	#define taskEVENT_LIST_ITEM_VALUE_IN_USE	0x80000000UL
 #endif
 
+#define RTT_TOPOFSTACK_OFFS 0x1C /* 28 bytes */
+
 /*
  * Task control block.  A task control block (TCB) is allocated for each task,
  * and stores task state information, including a pointer to the task's context
@@ -268,6 +270,8 @@ to its original value when it is released. */
  */
 typedef struct tskTaskControlBlock
 {
+	char stack_reserved[RTT_TOPOFSTACK_OFFS];
+
 	volatile StackType_t	*pxTopOfStack;	/*< Points to the location of the last item placed on the tasks stack.  THIS MUST BE THE FIRST MEMBER OF THE TCB STRUCT. */
 
 	#if ( portUSING_MPU_WRAPPERS == 1 )
@@ -1002,6 +1006,9 @@ UBaseType_t x;
 		pxNewTCB->ucDelayAborted = pdFALSE;
 	}
 	#endif
+
+	extern char *g_task_name;
+	g_task_name = pcName;
 
 	/* Initialize the TCB stack to look as if the task was already running,
 	but had been interrupted by the scheduler.  The return address is set
@@ -2887,6 +2894,10 @@ BaseType_t xSwitchRequired = pdFALSE;
 
 void TASK_SW_ATTR vTaskSwitchContext( void )
 {
+	TCB_t *pxCurrentTCB_bak = pxCurrentTCB;
+	ets_printf("s_switch_ctx_flag 11111... %p\r\n", pxCurrentTCB);
+	ets_printf("exit:[0x%08x] sp[0x%08x] <--\n", 
+                *(uint32_t *)pxCurrentTCB->pxTopOfStack, pxCurrentTCB->pxTopOfStack);
 	if( uxSchedulerSuspended != ( UBaseType_t ) pdFALSE )
 	{
 		/* The scheduler is currently suspended - do not allow a context
@@ -2941,7 +2952,26 @@ void TASK_SW_ATTR vTaskSwitchContext( void )
 		}
 		#endif /* configUSE_NEWLIB_REENTRANT */
 	}
+	ets_printf("exit:[0x%08x] sp[0x%08x] <--\n", 
+        	*(uint32_t *)pxCurrentTCB->pxTopOfStack, pxCurrentTCB->pxTopOfStack);
+	ets_printf("s_switch_ctx_flag 11111222... %p %p %s\r\n", \
+		pxCurrentTCB, &pxCurrentTCB->pxTopOfStack, pxCurrentTCB->pcTaskName);
+
+	if (pxCurrentTCB_bak != pxCurrentTCB) {
+		ets_printf("s_switch_ctx_flag 11111333... %p %p\r\n", pxCurrentTCB_bak, pxCurrentTCB);
+		ets_printf("task switch: %s ==> %s\r\n", pxCurrentTCB_bak->pcTaskName, pxCurrentTCB->pcTaskName);
+		extern void dump_memory(char *name, uint8_t *data, uint32_t len);
+    	dump_memory(pxCurrentTCB_bak->pcTaskName, pxCurrentTCB_bak->pxTopOfStack, 80);
+    	dump_memory(pxCurrentTCB->pcTaskName, pxCurrentTCB->pxTopOfStack, 80);
+	}
 }
+
+void dump_cur_task_sp_memory(void)
+{
+	extern void dump_memory(char *name, uint8_t *data, uint32_t len);
+    dump_memory(pxCurrentTCB->pcTaskName, pxCurrentTCB->pxTopOfStack, 80);
+}
+
 /*-----------------------------------------------------------*/
 
 void vTaskPlaceOnEventList( List_t * const pxEventList, const TickType_t xTicksToWait )

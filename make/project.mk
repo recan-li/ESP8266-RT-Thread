@@ -227,6 +227,7 @@ LD ?= ld
 AR ?= ar
 OBJCOPY ?= objcopy
 OBJDUMP ?= objdump
+ADDR2LINE ?= addr2line
 SIZE ?= size
 
 # Set host compiler and binutils
@@ -312,6 +313,30 @@ COMPONENT_INCLUDES += $(abspath $(BUILD_DIR_BASE)/include/)
 
 export COMPONENT_INCLUDES
 
+define GEN_PYTHON_FLASH_BAT_FILE
+	flash_py_bat=esp8266_flash_py.bat;\
+	echo "gen flash python bat file ... ";\
+	esptoolpy_write_flash=\"$(1)\";\
+	esptoolpy_all_flash_args=\"$(2)\";\
+	total_cmd="$$esptoolpy_write_flash $$esptoolpy_all_flash_args";\
+	echo "if \"xxx%1\" == \"xxxdebug\" goto debug_only" > $$flash_py_bat;\
+	echo "$$total_cmd" >> $$flash_py_bat;\
+	echo ":debug_only" >> $$flash_py_bat;\
+	echo "$(PYTHON) $(IDF_PATH)/components/esptool_py/esptool/espuart.py \
+		$(CONFIG_ESPTOOLPY_PORT) $(CONFIG_ESP_CONSOLE_UART_BAUDRATE)" >> $$flash_py_bat;\
+	sed -i 's/\"//g' $$flash_py_bat;\
+	sed -i 's#$(IDF_PATH)#..\\..\\..#g' $$flash_py_bat;\
+	sed -i 's#\/#\\#g' $$flash_py_bat;\
+	chmod 777 $$flash_py_bat;\
+	cat $$flash_py_bat
+endef
+
+test:
+	echo "\"test\""
+	printf "if \"%%1\" == \"debug\" goto debug_only"
+	echo "if \"%1\" == \"debug\" goto debug_only" > test.log 
+	cat test.log
+
 all:
 ifdef CONFIG_SECURE_BOOT_ENABLED
 	@echo "(Secure boot enabled, so bootloader not flashed automatically. See 'make bootloader' output)"
@@ -324,6 +349,7 @@ endif
 else
 	@echo "To flash all build output, run 'make flash' or:"
 endif
+	$(call GEN_PYTHON_FLASH_BAT_FILE,"$(ESPTOOLPY_WRITE_FLASH)","$(ESPTOOL_ALL_FLASH_ARGS)")
 	@echo $(ESPTOOLPY_WRITE_FLASH) $(ESPTOOL_ALL_FLASH_ARGS)
 
 
@@ -427,6 +453,9 @@ CFLAGS ?=
 EXTRA_CFLAGS ?=
 CFLAGS := $(strip \
 	-std=gnu99 \
+	-save-temps=obj \
+	-mlongcalls \
+	-g2 \
 	$(OPTIMIZATION_FLAGS) $(DEBUG_FLAGS) \
 	$(COMMON_FLAGS) \
 	$(COMMON_WARNING_FLAGS) -Wno-old-style-declaration \
@@ -464,8 +493,9 @@ LD := $(call dequote,$(CONFIG_SDK_TOOLPREFIX))ld
 AR := $(call dequote,$(CONFIG_SDK_TOOLPREFIX))ar
 OBJCOPY := $(call dequote,$(CONFIG_SDK_TOOLPREFIX))objcopy
 OBJDUMP := $(call dequote,$(CONFIG_SDK_TOOLPREFIX))objdump
+ADDR2LINE := $(call dequote,$(CONFIG_SDK_TOOLPREFIX))addr2line
 SIZE := $(call dequote,$(CONFIG_SDK_TOOLPREFIX))size
-export CC CXX LD AR OBJCOPY OBJDUMP SIZE
+export CC CXX LD AR OBJCOPY OBJDUMP ADD2LINE SIZE
 
 COMPILER_VERSION_STR := $(shell $(CC) -dumpversion)
 COMPILER_VERSION_NUM := $(subst .,,$(COMPILER_VERSION_STR))
@@ -505,8 +535,12 @@ $(foreach componentpath,$(COMPONENT_PATHS), \
 # also depends on additional dependencies (linker scripts & binary libraries)
 # stored in COMPONENT_LINKER_DEPS, built via component.mk files' COMPONENT_ADD_LINKER_DEPS variable
 COMPONENT_LINKER_DEPS ?=
+$(warning $(foreach libcomp,$(COMPONENT_LIBRARIES),lib$(libcomp).a))
+$(warning [$(APP_BIN)] need components number ---> $(shell echo "$(foreach libcomp,$(COMPONENT_LIBRARIES),$(BUILD_DIR_BASE)/$(libcomp)/lib$(libcomp).a)" | wc -w))
 $(APP_ELF): $(foreach libcomp,$(COMPONENT_LIBRARIES),$(BUILD_DIR_BASE)/$(libcomp)/lib$(libcomp).a) $(COMPONENT_LINKER_DEPS) $(COMPONENT_PROJECT_VARS)
+	@$(info here create for $@)
 	$(summary) LD $(patsubst $(PWD)/%,%,$@)
+	@echo "$(CC) $(LDFLAGS) -o $@ -Wl,-Map=$(APP_MAP)"
 	$(CC) $(LDFLAGS) -o $@ -Wl,-Map=$(APP_MAP)
 
 app: $(APP_BIN) partition_table_get_info
@@ -542,6 +576,8 @@ define GenerateComponentTargets
 .PHONY: component-$(2)-build component-$(2)-clean
 
 component-$(2)-build: check-submodules make_prepare $(call prereq_if_explicit, component-$(2)-clean) | $(BUILD_DIR_BASE)/$(2)
+	@echo ""
+	@echo "Building component: ------>>>>>> $(2)"
 	$(call ComponentMake,$(1),$(2)) build
 
 component-$(2)-clean: | $(BUILD_DIR_BASE)/$(2) $(BUILD_DIR_BASE)/$(2)/component_project_vars.mk
@@ -630,6 +666,27 @@ endef
 $(foreach submodule,$(subst $(IDF_PATH)/,,$(filter $(IDF_PATH)/%,$(COMPONENT_SUBMODULES))),$(eval $(call GenerateSubmoduleCheckTarget,$(submodule))))
 endif # End check for .gitmodules existence
 
+elf_list := $(shell find . -name *.elf)
+$(warning elf_list=$(elf_list) $(CONFIG_SDK_TOOLPREFIX))
+objdump:
+	@echo "operation for $@ ..."
+	$(foreach elf,$(elf_list),\
+		echo "$(OBJDUMP) -l -d -x -s -S $(elf) > $(dir $(elf))/objdump.$(notdir $(elf)).dmp";\
+		$(OBJDUMP) -l -d -x -s -S $(elf) > $(dir $(elf))/objdump.$(notdir $(elf)).dmp;\
+	)
+
+ADDR ?= "xxx"
+ELF  ?= "xxx"
+backtrace:
+	@echo "operation for $@ ..."
+	@echo "======================================"
+	@echo " ^ stack frame top    <<<============="
+	$(foreach addr,$(ADDR),\
+		echo -n " | ";\
+		$(ADDR2LINE) $(addr) -e $(ELF) -f -C -s -p;\
+	)
+	@echo " | stack frame bottom <<<============="
+	@echo "======================================"
 
 # PHONY target to list components in the build and their paths
 list-components:

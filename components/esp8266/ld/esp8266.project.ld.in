@@ -175,6 +175,7 @@ SECTIONS
     *(.fini.literal)
     *(.fini)
     *(.gnu.version)
+
     _text_end = ABSOLUTE(.);
     _etext = .;
 
@@ -225,6 +226,38 @@ SECTIONS
     KEEP (*(EXCLUDE_FILE (*crtend.*) .dtors))
     KEEP (*(SORT(.dtors.*)))
     KEEP (*(.dtors))
+
+    
+    /* *(.rti_fn*)  */
+    /* rt-thread init code */
+    /* section information for initial. */
+    . = ALIGN(4);
+    __rt_init_start = .;
+    KEEP(*(SORT(.rti_fn*)))
+    /* KEEP(*(SORT(.rti_fn.0)))
+    KEEP(*(SORT(.rti_fn.0.end)))
+    KEEP(*(SORT(.rti_fn.1)))
+    KEEP(*(SORT(.rti_fn.1.end)))
+    KEEP(*(SORT(.rti_fn.2)))
+    KEEP(*(SORT(.rti_fn.3)))
+    KEEP(*(SORT(.rti_fn.4)))
+    KEEP(*(SORT(.rti_fn.5)))
+    KEEP(*(SORT(.rti_fn.6)))
+    KEEP(*(SORT(.rti_fn.6.end))) */
+
+    /* KEEP(*(SORT(.rti_fn.6.end)))
+    KEEP(*(SORT(.rti_fn.6)))
+    KEEP(*(SORT(.rti_fn.5)))
+    KEEP(*(SORT(.rti_fn.4)))
+    KEEP(*(SORT(.rti_fn.3)))
+    KEEP(*(SORT(.rti_fn.2)))
+    KEEP(*(SORT(.rti_fn.1.end)))
+    KEEP(*(SORT(.rti_fn.1)))
+    KEEP(*(SORT(.rti_fn.0.end)))
+    KEEP(*(SORT(.rti_fn.0))) */
+    __rt_init_end = .;
+    . = ALIGN(4);
+
     /*  C++ exception handlers table:  */
     __XT_EXCEPTION_DESCS_ = ABSOLUTE(.);
     *(.xt_except_desc)

@@ -1546,6 +1546,9 @@ class ESP8266V3FirmwareImage(BaseFirmwareImage):
             flash_segments = [copy.deepcopy(s) for s in sorted(self.segments, key=lambda s:s.addr) if self.is_flash_addr(s.addr) and len(s.data)]
             ram_segments = [copy.deepcopy(s) for s in sorted(self.segments, key=lambda s:s.addr) if not self.is_flash_addr(s.addr) and len(s.data)]
 
+            print(flash_segments)
+            print(ram_segments)
+
             IROM_ALIGN = 65536
 
             # check for multiple ELF sections that are mapped in the same flash mapping region.
@@ -1553,14 +1556,19 @@ class ESP8266V3FirmwareImage(BaseFirmwareImage):
             # use case then let us know (we can merge segments here, but as a rule you probably
             # want to merge them in your linker script.)
             a = len(flash_segments)
+            print(a)
             
             if len(flash_segments) > 0:
                 last_addr = flash_segments[0].addr
-                #print('%x' % last_addr)
+                print('%x' % last_addr)
                 for segment in flash_segments[1:]:
-                    if segment.addr // IROM_ALIGN == last_addr // IROM_ALIGN:
+                    print('------------------>')
+                    print(segment)
+                    print('last_addr   : 0x%08x -> %d' % (last_addr, last_addr // IROM_ALIGN))
+                    print('segment.addr: 0x%08x -> %d' % (segment.addr, segment.addr // IROM_ALIGN))
+                    if (segment.addr // IROM_ALIGN) == (last_addr // IROM_ALIGN):
                         print(segment)
-                        raise FatalError(("Segment loaded at 0x%08x lands in same 64KB flash mapping as segment loaded at 0x%08x. " +
+                        raise FatalError(("-------> Segment loaded at 0x%08x lands in same 64KB flash mapping as segment loaded at 0x%08x. " +
                                           "Can't generate binary. Suggest changing linker script or ELF to merge sections.") %
                                          (segment.addr, last_addr))
                     last_addr = segment.addr
@@ -2354,7 +2362,9 @@ def elf2image(args):
     elif args.version == '2':  # ESP8266
     	    image = ESP8266V2FirmwareImage()
     else:
+        print("Creating image for V3 ESP8266 image ...")
         image = ESP8266V3FirmwareImage()
+
     image.entrypoint = e.entrypoint
     image.segments = e.sections  # ELFSection is a subclass of ImageSegment
     image.flash_mode = {'qio':0, 'qout':1, 'dio':2, 'dout': 3}[args.flash_mode]

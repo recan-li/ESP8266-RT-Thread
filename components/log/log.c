@@ -222,7 +222,7 @@ void IRAM_ATTR esp_early_log_write(esp_log_level_t level, const char *tag, const
         ets_printf(LOG_COLOR_HEAD, color);
 #endif
 
-    if (ets_printf("%c (%d) %s: ", prefix, esp_log_early_timestamp(), tag) < 0)
+    if (ets_printf("early-> %c (%d) %s: ", prefix, esp_log_early_timestamp(), tag) < 0)
         goto out;
 
     va_start(va, fmt);
@@ -267,7 +267,7 @@ void esp_log_write(esp_log_level_t level, const char *tag,  const char *fmt, ...
     }
 #endif
     prefix = level >= ESP_LOG_MAX ? 'N' : s_log_prefix[level];
-    ret = asprintf(&pbuf, "%c (%d) %s: ", prefix, esp_log_early_timestamp(), tag);
+    ret = asprintf(&pbuf, "normal-> %c (%d) %s: ", prefix, esp_log_early_timestamp(), tag);
     if (ret < 0)
         goto out;
     ret = esp_log_write_str(pbuf);

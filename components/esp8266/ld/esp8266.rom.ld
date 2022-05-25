@@ -66,3 +66,9 @@ PROVIDE ( rom_i2c_writeReg = 0x400072d8 );
 PROVIDE ( rom_i2c_writeReg_Mask = 0x4000730c );
 
 PROVIDE ( rom_software_reboot = 0x40000080 );
+
+PROVIDE ( _xtos_set_intlevel = 0x4000dbfc );
+
+PROVIDE ( TIMERG0 = 0x3ff5F000 );
+
+PROVIDE ( TIMERG1 = 0x3ff60000 );

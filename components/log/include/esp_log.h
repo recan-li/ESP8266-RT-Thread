@@ -324,6 +324,15 @@ void esp_early_log_write(esp_log_level_t level, const char* tag, const char* for
         if ( LOG_LOCAL_LEVEL >= level ) ESP_LOG_LEVEL(level, tag, format, ##__VA_ARGS__); \
     } while(0)
 
+#if 0
+extern char *esp_strrchr(const char *s, char c);
+#define RT_DEBUG_MORE(fmt, arg...)    \
+        ets_printf("[%-8d][%s:%s:%d] "fmt"\r\n", esp_log_early_timestamp(), \
+            __func__, esp_strrchr(__FILE__, '/') + 1, __LINE__, ##arg)
+#else
+#define RT_DEBUG_MORE(fmt, arg...)    do {} while(0)
+#endif
+
 #ifdef __cplusplus
 }
 #endif

@@ -2,10 +2,24 @@ menu "FreeRTOS"
 
 config DISABLE_FREERTOS
     bool "Disable FreeRTOS"
-    default n
+    default y    
     help
         Enable this option, FreeRTOS will not be compiled and linked, and the user
         can user other OS platform.
+
+config ENABLE_ESP_OSAL_RTTHREAD
+    bool "Enable RT-Thread"
+    default y
+    select DISABLE_FREERTOS
+    help
+        Enable this option, RT-Thread will not be compiled and linked.
+
+config USING_FREERTOS_PENDSV
+    bool "Using FreeRTOS PendSV"
+    default y
+    depends on ENABLE_ESP_OSAL_RTTHREAD
+    help
+        Enable this option, RT-Thread will use PendSV like FreeRTOS.
 
 config FREERTOS_UNICORE
     bool
@@ -28,12 +42,46 @@ config FREERTOS_NO_AFFINITY
 
 config FREERTOS_HZ
     int "Tick rate (Hz)"
-    range 1 1000
+    range 1 2000
     default 100
     help
         Select the tick rate at which FreeRTOS does pre-emptive context switching.
 
         The value must be the divisor of 1000, otherwise it may cause time mistake.
+
+config FREERTOS_MAX_TASK_NAME_LEN
+    int "Maximum task name length"
+    range 1 256
+    default 16
+    help
+        Changes the maximum task name length. Each task allocated will
+        include this many bytes for a task name. Using a shorter value
+        saves a small amount of RAM, a longer value allows more complex
+        names.
+
+        For most uses, the default of 16 is OK.
+
+config FREERTOS_TIMER_TASK_PRIORITY
+    int "FreeRTOS timer task priority"
+    range 1 25
+    default 1
+    help
+        The timer service task (primarily) makes use of existing FreeRTOS features, allowing timer
+        functionality to be added to an application with minimal impact on the size of the application's
+        executable binary.
+
+        Use this constant to define the priority that the timer task will run at.
+
+config FREERTOS_THREAD_LOCAL_STORAGE_POINTERS
+    int "Number of thread local storage pointers"
+    range 1 256
+    default 1
+    help
+        FreeRTOS has the ability to store per-thread pointers in the task
+        control block. This controls the number of pointers available.
+
+        This value must be at least 1. Index 0 is reserved for use by the pthreads API
+        thread-local-storage. Other indexes can be used for any desired purpose.
 
 config FREERTOS_MAX_HOOK
     int "FreeRTOS hook max number"
