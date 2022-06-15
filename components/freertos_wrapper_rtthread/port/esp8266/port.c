@@ -52,12 +52,18 @@
 #include "driver/soc.h"
 
 #ifdef CONFIG_ENABLE_ESP_OSAL_RTTHREAD
+
+#include "portmacro.h"
 #include "rtthread.h"
+#include "driver/uart.h"
+
+volatile rt_ubase_t  rt_interrupt_from_thread = 0;
+volatile rt_ubase_t  rt_interrupt_to_thread   = 0;
+
+#define rt_thread_switch_interrupt_flag s_switch_ctx_flag
 
 extern volatile rt_uint8_t rt_interrupt_nest;
 extern rt_thread_t rt_current_thread;
-
-extern void rt_schedule(void);
 
 #endif
 
@@ -164,9 +170,9 @@ void IRAM_ATTR xPortSysTickHandle(void *p)
     uint32_t ticks;
     uint32_t ccount;
 
-    extern int ets_puc(int c);
-    ets_putc('+');
-    RT_DEBUG_MORE("+\r\n");
+    //extern int ets_puc(int c);
+    //ets_putc('+');
+    //RT_DEBUG_MORE("+\r\n");
 
     /**
      * System or application may close interrupt too long, such as the operation of read/write/erase flash.
@@ -192,10 +198,10 @@ void IRAM_ATTR xPortSysTickHandle(void *p)
     g_esp_os_ticks++;
 
     if (xTaskIncrementTick() != pdFALSE) {
-        ets_printf("t\r\n");
+        //ets_printf("t\r\n");
         portYIELD_FROM_ISR();
     }
-    ets_putc('+');
+    //ets_putc('+');
 }
 
 /**
@@ -240,16 +246,6 @@ portBASE_TYPE xPortStartScheduler(void)
 #endif
 
     vTaskSwitchContext();
-
-    while (0) {
-        RT_DEBUG_MORE("6+1\r\n");
-        for(int i = 0; i < 10000000; i++);
-        //RT_DEBUG_MORE("6+1\r\n");
-        //for(int i = 0; i < 10000000; i++);
-        //RT_DEBUG_MORE("6+1\r\n");
-        //for(int i = 0; i < 10000000; i++);
-            break;
-    }
 
     /* Restore the context of the first task that is going to run. */
     _xt_enter_first_task();
@@ -394,11 +390,14 @@ void _xt_isr_attach(uint8_t i, _xt_isr func, void* arg)
 
 void IRAM_ATTR _xt_isr_handler(void)
 {
+#ifdef CONFIG_ENABLE_ESP_OSAL_RTTHREAD
+    rt_interrupt_enter();
+#endif
+
     do {
         uint32_t mask = soc_get_int_mask();
 
-        //ets_printf("isr mask: %x %p\r\n", mask, rt_current_thread);
-        //ets_printf("%s\n", rt_current_thread->name);
+        //ets_printf("isr mask: %x\r\n", mask);
         for (int i = 0; i < ETS_INT_MAX && mask; i++) {
             int bit = 1 << i;
 
@@ -416,17 +415,12 @@ void IRAM_ATTR _xt_isr_handler(void)
     } while (soc_get_int_mask());
 
     if (s_switch_ctx_flag) {
-        ets_printf("s_switch_ctx_flag 11111000... switch begin\r\n");
-#ifndef CONFIG_ENABLE_ESP_OSAL_RTTHREAD
         vTaskSwitchContext();
-#else
-        ets_printf("cur_task1: %s\n", rt_current_thread->name);        
-        rt_schedule();
-        ets_printf("cur_task2: %s\n", rt_current_thread->name);
-#endif
-		ets_printf("s_switch_ctx_flag 11111222333... switch end\r\n");
         s_switch_ctx_flag = 0;
     }
+#ifdef CONFIG_ENABLE_ESP_OSAL_RTTHREAD
+    rt_interrupt_leave();
+#endif
 }
 
 __attribute__((section("text"))) void debug_int_enter(void)
@@ -504,14 +498,6 @@ uint32_t xPortGetTickRateHz(void)
 
 /**************** wrapper with RT-Thead *********************/
 
-#include "rtthread.h"
-#include "driver/uart.h"
-
-volatile rt_ubase_t  rt_interrupt_from_thread = 0;
-volatile rt_ubase_t  rt_interrupt_to_thread   = 0;
-
-#define rt_thread_switch_interrupt_flag s_switch_ctx_flag
-
 void xt_ints_on(unsigned int mask)
 {
     _xt_isr_mask(mask);
@@ -539,18 +525,14 @@ char rt_hw_console_getchar(void)
     return -1;
 }
 
-//使能中断
 void rt_hw_interrupt_enable(rt_base_t level)
 {
-    //rt_kprintf("int enable !1111\r\n");
     cpu_sr = level;
     portENABLE_INTERRUPTS();
 }
 
-//关闭中断
 rt_base_t rt_hw_interrupt_disable(void)
 {
-    //rt_kprintf("int disable !1111\r\n");
     portDISABLE_INTERRUPTS();
     return cpu_sr;
 }
@@ -589,7 +571,7 @@ rt_uint8_t *rt_hw_stack_init(void       *tentry,
 
     /* Explicitly initialize certain saved registers */
     SET_STKREG(XT_STK_PC,   tentry);                        /* task entrypoint                  */
-    SET_STKREG(XT_STK_A0,   0);                         /* to terminate GDB backtrace       */
+    SET_STKREG(XT_STK_A0,   texit);                         /* to terminate GDB backtrace       */
     SET_STKREG(XT_STK_A1,   (uint32_t)sp + XT_STK_FRMSZ);   /* physical top of stack frame      */
     SET_STKREG(XT_STK_A2,   parameter);                     /* parameters      */
     SET_STKREG(XT_STK_EXIT, _xt_user_exit);                 /* user exception exit dispatcher   */
@@ -598,18 +580,15 @@ rt_uint8_t *rt_hw_stack_init(void       *tentry,
     SET_STKREG(XT_STK_PS,      PS_UM | PS_EXCM);
 
     extern void dump_memory(char *name, uint8_t *data, uint32_t len);
-    dump_memory(g_task_name, sp, 100);
+    dump_memory(g_task_name, sp, 80);
 
     return (uint8_t *)sp;
 }
 
-#if 1
 void rt_hw_context_switch_to(rt_uint32_t to)
 {
-    ets_printf("%s\r\n", __func__);
     rt_interrupt_from_thread = 0;
     rt_interrupt_to_thread = to;
-    extern void _xt_enter_first_task(void);
     _xt_enter_first_task();
 }
 
@@ -620,28 +599,25 @@ void rt_hw_context_switch_to(rt_uint32_t to)
 
 void rt_hw_context_switch(rt_uint32_t from, rt_uint32_t to)
 {
-    if (s_switch_ctx_flag) {
-        return;
-    }
-    ets_printf("---%s (%p) <- (%p)\r\n", __func__, to, from);
-    if (rt_thread_switch_interrupt_flag != 1) {
-        rt_interrupt_from_thread = from;
-    }
+    //ets_printf("---%s (%p) <- (%p)\r\n", __func__, to, from);
+    rt_interrupt_from_thread = from;
     rt_interrupt_to_thread = to;
-    extern rt_thread_t rt_current_thread;
-    rt_current_thread = container_of(from, struct rt_thread, sp);
+    
+    /* set current thread with "from" thread before pendsv accur */
+    rt_current_thread = container_of(rt_interrupt_from_thread, struct rt_thread, sp);
     PendSV(1);
 }
 
 void rt_hw_context_switch_interrupt(rt_uint32_t from, rt_uint32_t to)
 {
-    ets_printf("%s %p <- %p\r\n", __func__, to, from);
-    if (rt_thread_switch_interrupt_flag != 1) {
-        rt_interrupt_from_thread = from;
-        rt_thread_switch_interrupt_flag = 1;
-    }
-    rt_interrupt_to_thread = to;
+    //ets_printf("%s %p <- %p\r\n", __func__, to, from);
+    rt_hw_context_switch(from, to);
 }
-#endif
+
+void vTaskSwitchContext(void)
+{
+    /* set current thread with "to" thread in pendsv handler */
+    rt_current_thread = container_of(rt_interrupt_to_thread, struct rt_thread, sp);
+}
 
 /***************************** EOF **********************************/

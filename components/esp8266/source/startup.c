@@ -211,6 +211,28 @@ void test_task_entry_h(void *param)
     vTaskDelete(NULL);
 }
 
+#ifdef CONFIG_ENABLE_ESP_OSAL_RTTHREAD
+
+#include "rtthread.h"
+
+static int cnt = 0;
+static rt_timer_t timer1;
+
+/* 定时器 1 超时函数 */
+static void timeout1(void *parameter)
+{
+    rt_kprintf("periodic timer is timeout %d\n", cnt);
+
+    /* 运行第 10 次，停止周期定时器 */
+    if (cnt++>= 9)
+    {
+        rt_timer_stop(timer1);
+        rt_kprintf("periodic timer was stopped! \n");
+    }
+}
+
+#endif
+
 void test_task_entry(void *param)
 {
     int i;
@@ -225,6 +247,19 @@ void test_task_entry(void *param)
 #endif
 
     for (i = 0; i < 10000000; i++) {
+#ifdef CONFIG_ENABLE_ESP_OSAL_RTTHREAD
+        if (i == 5) {
+            /* 创建定时器 1  周期定时器 */
+            timer1 = rt_timer_create("timer1", timeout1,
+                             RT_NULL, 10,
+                             RT_TIMER_FLAG_PERIODIC | RT_TIMER_FLAG_SOFT_TIMER);
+
+            /* 启动定时器 1 */
+            if (timer1 != RT_NULL) {
+                rt_timer_start(timer1);
+            }
+        }
+#endif
         ets_printf("-------------> hello 111 ... %d, %d\n", (int)xTaskGetTickCount(), i);
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
@@ -262,13 +297,6 @@ void sys_tick_int_init(void)
 
     /* Initialize system tick timer interrupt and schedule the first tick. */
     _xt_tick_divisor = xtbsp_clock_freq_hz() / CONFIG_FREERTOS_HZ;
-
-    RT_DEBUG_MORE("");
-
-    extern void _frxt_tick_timer_init(void);
-    //_frxt_tick_timer_init();
-    extern void _frxt_tick_timer_init_bak(void);
-    //_frxt_tick_timer_init_bak();
 
     RT_DEBUG_MORE("");
 
@@ -356,11 +384,11 @@ void call_start_cpu(size_t start_addr)
         offsetof(struct rt_thread, sp), offsetof(struct rt_thread, sp), sizeof(rt_list_t));
 #endif
 
-    //assert(xTaskCreate(user_init_entry, "uiT", ESP_TASK_MAIN_STACK, NULL, ESP_TASK_MAIN_PRIO, NULL) == pdPASS);
+    assert(xTaskCreate(test_task_entry_h, "test-h", ESP_TASK_MAIN_STACK, NULL, 13, NULL) == pdPASS);
 
     assert(xTaskCreate(test_task_entry, "test", ESP_TASK_MAIN_STACK, NULL, 12, NULL) == pdPASS);
 
-    assert(xTaskCreate(test_task_entry_h, "test-h", ESP_TASK_MAIN_STACK, NULL, 13, NULL) == pdPASS);
+    //assert(xTaskCreate(user_init_entry, "uiT", ESP_TASK_MAIN_STACK, NULL, ESP_TASK_MAIN_PRIO, NULL) == pdPASS);
 
     vTaskStartScheduler();
 

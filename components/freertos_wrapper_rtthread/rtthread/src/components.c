@@ -245,8 +245,8 @@ int rtthread_startup(void)
 #endif
 
     /* create init_thread */
-    //rt_application_init();
-    //RT_DEBUG_MORE("");
+    rt_application_init();
+    RT_DEBUG_MORE("");
 
     /* timer thread initialization */
     rt_system_timer_thread_init();

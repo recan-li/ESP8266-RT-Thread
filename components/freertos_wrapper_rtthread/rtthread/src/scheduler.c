@@ -187,8 +187,6 @@ void rt_system_scheduler_start(void)
     /* never come back */
 }
 
-struct rt_thread *from_thread;// by jz
-
 /**
  * @addtogroup Thread
  */
@@ -203,7 +201,7 @@ void rt_schedule(void)
 {
     rt_base_t level;
     struct rt_thread *to_thread;
-    // struct rt_thread *from_thread;// by jz
+    struct rt_thread *from_thread;
 
     /* disable interrupt */
     level = rt_hw_interrupt_disable();
@@ -238,32 +236,15 @@ void rt_schedule(void)
 
             RT_OBJECT_HOOK_CALL(rt_scheduler_hook, (from_thread, to_thread));
 
-            {
-                //rt_uint32_t start = (rt_uint32_t)&from_thread->name;
-                //rt_uint32_t end = (rt_uint32_t)&from_thread->sp;
-                /* 0x1C for ESP8266 platform */
-                //RT_DEBUG_MORE("offset = end - start : 0x%08x - 0x%08x = 0x%x = %d", 
-                //    end, start, end - start, end - start);
-            }
-
             /* switch to new thread */
             RT_DEBUG_LOG(RT_DEBUG_SCHEDULER,
                          ("[%d]switch to priority#%d "
                           "thread:%.*s(sp:0x%p), "
-                          " <---- "// by jz
+                          " <---- "
                           "from thread:%.*s(sp: 0x%p)\n",
                           rt_interrupt_nest, highest_ready_priority,
                           RT_NAME_MAX, to_thread->name, to_thread->sp,
                           RT_NAME_MAX, from_thread->name, from_thread->sp));
-
-            RT_DEBUG_LOG(RT_DEBUG_SCHEDULER,
-                    ("(%s) exit:[0x%08x] <-- (%s) exit:[0x%08x]\n", 
-                    to_thread->name, *(rt_uint32_t *)(to_thread->sp), 
-                    from_thread->name, *(rt_uint32_t *)(from_thread->sp)));// by jz
-
-            //extern void dump_memory(char *name, uint8_t *data, uint32_t len);
-            //dump_memory(from_thread->name, from_thread->sp, 80);
-            //dump_memory(to_thread->name, to_thread->sp, 80);
 
             RT_DEBUG_LOG(RT_DEBUG_SCHEDULER, 
                     ("object(%s)[0x%08x] <-- object(%s)[0x%08x]\n", 
@@ -276,13 +257,12 @@ void rt_schedule(void)
 
             if (rt_interrupt_nest == 0)
             {
-                //RT_DEBUG_LOG(RT_DEBUG_SCHEDULER, ("no switch in interrupt (0x%08x <-- 0x%08x)\n", 
-                //    *(rt_uint32_t *)(to_thread->sp), *(rt_uint32_t *)(from_thread->sp)));
+                RT_DEBUG_LOG(RT_DEBUG_SCHEDULER, 
+                    ("switch no in interrupt object(%s)[0x%08x] <-- object(%s)[0x%08x]\n", 
+                    to_thread->name, to_thread, from_thread->name, from_thread));
 
                 rt_hw_context_switch((rt_uint32_t)&from_thread->sp,
                                      (rt_uint32_t)&to_thread->sp);
-
-                //RT_DEBUG_LOG(RT_DEBUG_SCHEDULER, ("no switch in interrupt\n"));
 
 #ifdef RT_USING_SIGNALS
                 if (rt_current_thread->stat & RT_THREAD_STAT_SIGNAL_PENDING)
@@ -292,7 +272,6 @@ void rt_schedule(void)
                     rt_current_thread->stat &= ~RT_THREAD_STAT_SIGNAL_PENDING;
 
                     rt_hw_interrupt_enable(level);
-                    RT_DEBUG_LOG(RT_DEBUG_SCHEDULER, ("no switch in interrupt\n"));
 
                     /* check signal status */
                     rt_thread_handle_sig(RT_TRUE);
@@ -300,7 +279,6 @@ void rt_schedule(void)
                 else
 #endif
                 {
-                    RT_DEBUG_LOG(RT_DEBUG_SCHEDULER, ("no switch in interrupt\n"));
                     /* enable interrupt */
                     rt_hw_interrupt_enable(level);
                 }
@@ -309,25 +287,16 @@ void rt_schedule(void)
             }
             else
             {
-                //extern rt_uint32_t rt_thread_switch_interrupt_flag;
-                //RT_DEBUG_LOG(RT_DEBUG_SCHEDULER, ("switch in interrupt %d\n",
-                //    rt_thread_switch_interrupt_flag));
-
                 RT_DEBUG_LOG(RT_DEBUG_SCHEDULER, 
                     ("switch in interrupt object(%s)[0x%08x] <-- object(%s)[0x%08x]\n", 
-                    to_thread->name, to_thread, from_thread->name, from_thread));// by jz
+                    to_thread->name, to_thread, from_thread->name, from_thread));
 
                 rt_hw_context_switch_interrupt((rt_uint32_t)&from_thread->sp,
                                                (rt_uint32_t)&to_thread->sp);
-
-                //RT_DEBUG_LOG(RT_DEBUG_SCHEDULER, ("switch in interrupt\n"));
             }
         }
     }
 
-    //extern rt_uint32_t rt_thread_switch_interrupt_flag;
-    //RT_DEBUG_LOG(RT_DEBUG_SCHEDULER, ("switch %d\n", rt_thread_switch_interrupt_flag));
-    
     /* enable interrupt */
     rt_hw_interrupt_enable(level);
 }

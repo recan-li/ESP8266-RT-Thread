@@ -2317,8 +2317,8 @@ BaseType_t xTaskGetAffinity( TaskHandle_t xTask )
 #if ( configUSE_TICKLESS_IDLE != 0 )
 	void vTaskStepTick( const TickType_t xTicksToJump )
 	{
-        rt_kprintf("error : vTaskStepTick not implemented!!!\n\n");
-		//暂时啥也不干
+        //rt_kprintf("error : vTaskStepTick not implemented!!!\n\n");
+		rt_tick_set(rt_tick_get() + xTicksToJump);
 	}
 #endif /* configUSE_TICKLESS_IDLE */
 

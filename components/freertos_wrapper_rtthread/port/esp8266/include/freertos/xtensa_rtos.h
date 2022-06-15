@@ -78,14 +78,7 @@ Called after minimal context has been saved, with interrupts disabled.
 RTOS port can call0 _xt_context_save to save the rest of the context.
 May only be called from assembly code by the 'call0' instruction.
 */
-
-#include "sdkconfig.h"
-
-#ifdef CONFIG_USING_FREERTOS_PENDSV
 #define XT_RTOS_INT_ENTER   _xt_int_enter
-#else
-#define XT_RTOS_INT_ENTER   _frxt_int_enter
-#endif
 #ifndef __ASSEMBLER__
 void XT_RTOS_INT_ENTER();
 #endif
@@ -100,11 +93,7 @@ leaving only a minimal part of the context to be restored by the exit
 dispatcher. This function does not return to the place it was called from.
 May only be called from assembly code by the 'call0' instruction.
 */
-#ifdef CONFIG_USING_FREERTOS_PENDSV
 #define XT_RTOS_INT_EXIT    _xt_int_exit
-#else
-#define XT_RTOS_INT_EXIT    _frxt_int_exit
-#endif
 #ifndef __ASSEMBLER__
 void XT_RTOS_INT_EXIT();
 #endif

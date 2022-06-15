@@ -126,7 +126,6 @@ void IRAM_ATTR PendSV(int req)
 {
     if (req == 1) {
         vPortEnterCritical();
-        ets_printf("m\r\n");
         s_switch_ctx_flag = 1;
         xthal_set_intset(1 << ETS_SOFT_INUM);
         vPortExitCritical();
@@ -140,7 +139,6 @@ void IRAM_ATTR SoftIsrHdl(void* arg)
     extern int MacIsrSigPostDefHdl(void);
 
     if (MacIsrSigPostDefHdl()) {
-        ets_printf("k\r\n");
         portYIELD_FROM_ISR();
     }
 }
@@ -156,9 +154,9 @@ void IRAM_ATTR xPortSysTickHandle(void *p)
     uint32_t ticks;
     uint32_t ccount;
 
-    extern int ets_puc(int c);
+    //extern int ets_puc(int c);
     //ets_putc('+');
-    RT_DEBUG_MORE("+\r\n");
+    //RT_DEBUG_MORE("+\r\n");
 
     /**
      * System or application may close interrupt too long, such as the operation of read/write/erase flash.
@@ -184,9 +182,10 @@ void IRAM_ATTR xPortSysTickHandle(void *p)
     g_esp_os_ticks++;
 
     if (xTaskIncrementTick() != pdFALSE) {
-        ets_printf("t\r\n");
+        //ets_printf("t\r\n");
         portYIELD_FROM_ISR();
     }
+    //ets_putc('+');
 }
 
 /**
@@ -231,16 +230,6 @@ portBASE_TYPE xPortStartScheduler(void)
 #endif
 
     vTaskSwitchContext();
-
-    while (0) {
-        RT_DEBUG_MORE("6+1\r\n");
-        for(int i = 0; i < 10000000; i++);
-        //RT_DEBUG_MORE("6+1\r\n");
-        //for(int i = 0; i < 10000000; i++);
-        //RT_DEBUG_MORE("6+1\r\n");
-        //for(int i = 0; i < 10000000; i++);
-            break;
-    }
 
     /* Restore the context of the first task that is going to run. */
     _xt_enter_first_task();
@@ -385,10 +374,14 @@ void _xt_isr_attach(uint8_t i, _xt_isr func, void* arg)
 
 void IRAM_ATTR _xt_isr_handler(void)
 {
+#ifdef CONFIG_ENABLE_ESP_OSAL_RTTHREAD
+    rt_interrupt_enter();
+#endif
+
     do {
         uint32_t mask = soc_get_int_mask();
 
-        ets_printf("isr mask: %x\r\n", mask);
+        //ets_printf("isr mask: %x\r\n", mask);
         for (int i = 0; i < ETS_INT_MAX && mask; i++) {
             int bit = 1 << i;
 
@@ -406,11 +399,12 @@ void IRAM_ATTR _xt_isr_handler(void)
     } while (soc_get_int_mask());
 
     if (s_switch_ctx_flag) {
-        ets_printf("s_switch_ctx_flag 11111000... switch begin\r\n");
         vTaskSwitchContext();
-        ets_printf("s_switch_ctx_flag 11111222... switch end\r\n");
         s_switch_ctx_flag = 0;
     }
+#ifdef CONFIG_ENABLE_ESP_OSAL_RTTHREAD
+    rt_interrupt_leave();
+#endif
 }
 
 __attribute__((section("text"))) void debug_int_enter(void)
@@ -449,12 +443,14 @@ signed portBASE_TYPE xTaskGenericCreate(TaskFunction_t pxTaskCode,
                        pvParameters, uxPriority, pxCreatedTask);
 }
 
+#ifndef CONFIG_ENABLE_ESP_OSAL_RTTHREAD
 BaseType_t xQueueGenericReceive(QueueHandle_t xQueue, void * const pvBuffer,
                                 TickType_t xTicksToWait, const BaseType_t xJustPeeking)
 {
     configASSERT(xJustPeeking == 0);
     return xQueueReceive(xQueue, pvBuffer, xTicksToWait);
 }
+#endif
 
 void esp_internal_idle_hook(void)
 {

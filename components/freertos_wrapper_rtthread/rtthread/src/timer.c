@@ -717,8 +717,6 @@ void rt_system_timer_thread_init(void)
                    RT_TIMER_THREAD_PRIO,
                    10);
 
-    RT_DEBUG_MORE("");
-
     /* startup */
     rt_thread_startup(&timer_thread);
 #endif
